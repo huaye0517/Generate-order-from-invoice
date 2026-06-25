@@ -68,7 +68,7 @@
  [],
  False,
  False,
- 1782366543,
+ 1782375776,
  [('runw.exe',
    'C:\\Users\\Lenovo\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],
