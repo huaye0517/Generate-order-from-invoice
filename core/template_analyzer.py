@@ -16,17 +16,38 @@ SUM_PATTERN = re.compile(
 )
 
 # 需方字段标签 -> 语义键
+# 涵盖不同合同模板的标签写法变体（全称/简称/带空格/带冒号）
 BUYER_LABEL_KEYS: List[Tuple[str, Tuple[str, ...]]] = [
-    ("company", ("单位名称",)),
-    ("address", ("单位地址",)),
-    ("signatory", ("代表签字",)),
-    ("phone", ("电话", "电    话", "电  话")),
-    ("bank", ("开户银行",)),
-    ("account", ("账号", "账    号", "账  号")),
-    ("credit_code", ("统一社会信用代码", "社会信用代码")),
+    ("company", (
+        "单位名称", "公司名称", "甲方单位", "甲方名称",
+        "名称", "企业名称",
+    )),
+    ("address", (
+        "单位地址", "公司地址", "地址", "通讯地址",
+        "注册地址", "企业地址",
+    )),
+    ("signatory", (
+        "代表签字", "法定代表", "代表人", "签字", "乙方代表",
+        "甲方代表", "授权代表", "联系人", "乙", "代表",
+    )),
+    ("phone", (
+        "电话", "电    话", "电  话", "联系电话", "手机",
+        "传真", "话",
+    )),
+    ("bank", (
+        "开户银行", "开户行", "银行", "行",
+    )),
+    ("account", (
+        "账号", "账    号", "账  号", "银行账号", "银行账户",
+        "帐号", "帐    号", "号",
+    )),
+    ("credit_code", (
+        "统一社会信用代码", "社会信用代码", "信用代码",
+        "营业执照", "税务登记", "证",
+    )),
 ]
 
-PARTY_LABELS = ("需求方", "甲  方", "甲方")
+PARTY_LABELS = ("需求方", "甲  方", "甲方", "需方", "买方")
 
 
 def _cell_str(value) -> str:
@@ -139,11 +160,14 @@ def _find_grand_total_row(ws: Worksheet, total_row: int) -> int:
     return total_row + 1
 
 
+_BUYER_HEADER_PREFIXES = ("需方", "需求方", "甲方", "买方")
+
+
 def _find_buyer_header_row(ws: Worksheet, start_row: int) -> Optional[int]:
     for row in range(start_row, ws.max_row + 1):
         for col in range(1, 8):
-            text = _cell_str(ws.cell(row, col).value)
-            if text.startswith("需方"):
+            text = _cell_str(ws.cell(row, col).value).replace(" ", "")
+            if any(text.startswith(p) for p in _BUYER_HEADER_PREFIXES):
                 return row
     return None
 
@@ -191,7 +215,9 @@ def _find_buyer_fields(ws: Worksheet, start_row: int) -> Tuple[Dict[str, int], i
         label = _cell_str(ws.cell(row, 3).value)
         if not label:
             continue
-        if label.startswith("供方"):
+        # 遇到供方/卖方/乙方区块即停止扫描
+        label_nospace = label.replace(" ", "")
+        if any(label_nospace.startswith(p) for p in ("供方", "卖方", "乙方", "供货方")):
             break
         for key, patterns in BUYER_LABEL_KEYS:
             if key in fields:
