@@ -6,7 +6,8 @@ from typing import Callable, List, Optional
 from .catalog import group_by_company
 from .models import CompanyGroup, GenerationResult
 from .order_cache import load_order_rows
-from .validator import validate_company_group
+from .template_layout import empty_product_row_range
+from .validator import count_product_lines, validate_company_group
 from .xlsx_patch import copy_and_set_e2
 
 INVALID_CHARS = re.compile(r'[\\/:*?"<>|]')
@@ -54,7 +55,9 @@ def generate_contracts(
                 dest = output_path / f"{stem}_{n}{suffix}"
                 n += 1
 
-        copy_and_set_e2(template_path, str(dest), group.e2_value)
+        product_lines = count_product_lines(order_rows, group.customers)
+        hide_rows = empty_product_row_range(product_lines)
+        copy_and_set_e2(template_path, str(dest), group.e2_value, hide_rows=hide_rows)
 
         status = "一致" if consistent else "数据不一致"
         message = ""

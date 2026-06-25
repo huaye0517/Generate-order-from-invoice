@@ -97,6 +97,57 @@ def set_cell_inline_str(xlsx_path: str, sheet_name: str, cell_ref: str, value: s
     tmp_path.replace(path)
 
 
-def copy_and_set_e2(template_path: str, dest_path: str, e2_value: str) -> None:
+def _patch_hide_rows(sheet_xml: bytes, row_start: int, row_end: int) -> bytes:
+    """隐藏指定行区间，减少产品表空白留白"""
+    root = ET.fromstring(sheet_xml)
+    sheet_data = root.find("main:sheetData", NS)
+    if sheet_data is None:
+        return sheet_xml
+
+    existing_rows = {
+        int(row.attrib.get("r", "0")): row
+        for row in sheet_data.findall("main:row", NS)
+        if row.attrib.get("r", "").isdigit()
+    }
+
+    for row_num in range(row_start, row_end + 1):
+        row = existing_rows.get(row_num)
+        if row is None:
+            row = ET.SubElement(sheet_data, f"{{{NS['main']}}}row", {"r": str(row_num)})
+            existing_rows[row_num] = row
+        row.set("hidden", "1")
+        row.set("customHeight", "1")
+        row.set("ht", "0")
+
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def hide_sheet_rows(xlsx_path: str, sheet_name: str, row_start: int, row_end: int) -> None:
+    """隐藏工作表中指定行"""
+    if row_start > row_end:
+        return
+    path = Path(xlsx_path)
+    tmp_path = path.with_suffix(".tmp.xlsx")
+
+    with zipfile.ZipFile(path, "r") as zin:
+        sheet_target = _find_sheet_path(zin, sheet_name)
+        new_sheet = _patch_hide_rows(zin.read(sheet_target), row_start, row_end)
+        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = new_sheet if item.filename == sheet_target else zin.read(item.filename)
+                zout.writestr(item, data)
+
+    tmp_path.replace(path)
+
+
+def copy_and_set_e2(
+    template_path: str,
+    dest_path: str,
+    e2_value: str,
+    hide_rows: tuple[int, int] | None = None,
+) -> None:
+    """复制模板、写入 E2，并可选隐藏产品区空行"""
     shutil.copy2(template_path, dest_path)
     set_cell_inline_str(dest_path, "模板", "E2", e2_value)
+    if hide_rows:
+        hide_sheet_rows(dest_path, "模板", hide_rows[0], hide_rows[1])

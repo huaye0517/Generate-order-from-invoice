@@ -7,6 +7,16 @@ from .order_cache import RowTuple
 TOLERANCE = 0.01
 
 
+def count_product_lines(order_rows: List[RowTuple], customer_names: List[str]) -> int:
+    """统计该公司关联客户的订单明细行数（即产品行数）"""
+    name_set = {str(n).strip() for n in customer_names}
+    count = 0
+    for c_str, k_str, _qty, _amt in order_rows:
+        if k_str in name_set or c_str in name_set:
+            count += 1
+    return count
+
+
 def sum_order_for_customers(order_rows: List[RowTuple], customer_names: List[str]) -> Tuple[float, float, Set[str]]:
     name_set = {str(n).strip() for n in customer_names}
     total_qty = 0.0
