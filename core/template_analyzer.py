@@ -4,6 +4,7 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .template_layout import TemplateLayout
@@ -14,40 +15,37 @@ SUM_PATTERN = re.compile(
     r"=SUM\s*\(\s*([A-Z]+)(\d+)\s*:\s*([A-Z]+)(\d+)\s*\)",
     re.I,
 )
+# 大写金额公式特征
+UPPERCASE_FORMULA_PATTERN = re.compile(r"DOLLAR|dbnum2|通用格式", re.I)
 
-# 需方字段标签 -> 语义键
-# 涵盖不同合同模板的标签写法变体（全称/简称/带空格/带冒号）
+# 需方字段标签 -> 语义键（避免单字匹配导致误识别）
 BUYER_LABEL_KEYS: List[Tuple[str, Tuple[str, ...]]] = [
     ("company", (
-        "单位名称", "公司名称", "甲方单位", "甲方名称",
-        "名称", "企业名称",
+        "单位名称", "公司名称", "甲方单位", "甲方名称", "企业名称",
     )),
     ("address", (
-        "单位地址", "公司地址", "地址", "通讯地址",
-        "注册地址", "企业地址",
+        "单位地址", "公司地址", "通讯地址", "注册地址", "企业地址",
     )),
     ("signatory", (
-        "代表签字", "法定代表", "代表人", "签字", "乙方代表",
-        "甲方代表", "授权代表", "联系人", "乙", "代表",
+        "代表签字", "法定代表", "代表人", "授权代表", "甲方代表", "乙方代表",
     )),
     ("phone", (
-        "电话", "电    话", "电  话", "联系电话", "手机",
-        "传真", "话",
+        "电话", "电    话", "电  话", "联系电话", "手机", "传真",
     )),
     ("bank", (
-        "开户银行", "开户行", "银行", "行",
+        "开户银行", "开户行",
     )),
     ("account", (
-        "账号", "账    号", "账  号", "银行账号", "银行账户",
-        "帐号", "帐    号", "号",
+        "账号", "账    号", "账  号", "银行账号", "银行账户", "帐号", "帐    号",
     )),
     ("credit_code", (
-        "统一社会信用代码", "社会信用代码", "信用代码",
-        "营业执照", "税务登记", "证",
+        "统一社会信用代码", "社会信用代码", "信用代码", "纳税人识别号", "税务登记",
     )),
 ]
 
 PARTY_LABELS = ("需求方", "甲  方", "甲方", "需方", "买方")
+_BUYER_HEADER_PREFIXES = ("需方", "需求方", "甲方", "买方")
+_SUPPLIER_HEADER_PREFIXES = ("供方", "供货方", "卖方", "乙方")
 
 
 def _cell_str(value) -> str:
@@ -56,15 +54,16 @@ def _cell_str(value) -> str:
     return str(value).strip()
 
 
+def _normalize_label(text: str) -> str:
+    """标签归一化：去空格、全角冒号"""
+    return text.replace(" ", "").replace("：", "").replace(":", "")
+
+
 def _row_is_empty(ws: Worksheet, row: int) -> bool:
     for col in range(1, ws.max_column + 1):
         if ws.cell(row, col).value not in (None, ""):
             return False
     return True
-
-
-def _col_letter_to_index(letter: str) -> int:
-    return openpyxl.utils.column_index_from_string(letter.upper())
 
 
 def _find_template_sheet(wb) -> str:
@@ -86,16 +85,16 @@ def _find_party_cell(ws: Worksheet) -> str:
             if any(p in label.replace(" ", "") for p in PARTY_LABELS):
                 value_col = col + 2
                 if value_col <= ws.max_column:
-                    letter = openpyxl.utils.get_column_letter(value_col)
+                    letter = get_column_letter(value_col)
                     return f"{letter}{row}"
     return "E2"
 
 
 def _find_total_row(ws: Worksheet) -> Optional[int]:
     for row in range(1, ws.max_row + 1):
-        for col in range(1, min(6, ws.max_column + 1)):
-            text = _cell_str(ws.cell(row, col).value)
-            if text == "合计" or (text.endswith("合计") and "大写" not in text):
+        for col in range(1, min(8, ws.max_column + 1)):
+            text = _normalize_label(_cell_str(ws.cell(row, col).value))
+            if text == "合计" or (text.endswith("合计") and "大写" not in text and "总合计" not in text):
                 return row
     return None
 
@@ -134,14 +133,14 @@ def _parse_sum_range(ws: Worksheet, total_row: int) -> Optional[Tuple[int, int, 
 
 
 def _is_product_formula_row(ws: Worksheet, row: int) -> bool:
-    val = ws.cell(row, 2).value
-    if not val or not isinstance(val, str):
-        return False
-    return bool(PRODUCT_ROW_PATTERN.search(val))
+    for col in range(1, min(6, ws.max_column + 1)):
+        val = ws.cell(row, col).value
+        if val and isinstance(val, str) and PRODUCT_ROW_PATTERN.search(val):
+            return True
+    return False
 
 
 def _refine_product_range(ws: Worksheet, first_row: int, last_row: int) -> Tuple[int, int]:
-    """根据 B 列公式校正产品区起止行"""
     while first_row <= last_row and not _is_product_formula_row(ws, first_row):
         first_row += 1
     while last_row >= first_row and not _is_product_formula_row(ws, last_row):
@@ -153,38 +152,75 @@ def _refine_product_range(ws: Worksheet, first_row: int, last_row: int) -> Tuple
 
 def _find_grand_total_row(ws: Worksheet, total_row: int) -> int:
     for row in range(total_row + 1, min(total_row + 5, ws.max_row + 1)):
-        for col in range(1, 6):
+        for col in range(1, min(8, ws.max_column + 1)):
             text = _cell_str(ws.cell(row, col).value)
             if "总合计" in text or "大写" in text:
                 return row
     return total_row + 1
 
 
-_BUYER_HEADER_PREFIXES = ("需方", "需求方", "甲方", "买方")
+def _find_grand_formula_info(ws: Worksheet, grand_row: int) -> Tuple[int, int, int]:
+    """
+    识别总合计行的大写金额公式列及其合并范围。
+    返回 (formula_col, merge_min_col, merge_max_col)。
+    """
+    formula_col = 5
+    merge_min, merge_max = 5, 5
+
+    for col in range(1, ws.max_column + 1):
+        val = ws.cell(grand_row, col).value
+        if isinstance(val, str) and val.startswith("=") and UPPERCASE_FORMULA_PATTERN.search(val):
+            formula_col = col
+            break
+
+    for m in ws.merged_cells.ranges:
+        if m.min_row == grand_row and m.min_col <= formula_col <= m.max_col:
+            merge_min = m.min_col
+            merge_max = m.max_col
+            break
+
+    return formula_col, merge_min, merge_max
+
+
+def _detect_product_row_merges(ws: Worksheet, product_first_row: int) -> List[Tuple[int, int]]:
+    """从首行产品行识别单行跨列合并（删行后易产生幽灵合并）"""
+    merges: List[Tuple[int, int]] = []
+    for m in ws.merged_cells.ranges:
+        if m.min_row == product_first_row and m.max_row == product_first_row:
+            merges.append((m.min_col, m.max_col))
+    return merges
+
+
+def _find_supplier_start_col(ws: Worksheet, header_row: int) -> int:
+    """识别供方区块起始列"""
+    for col in range(1, min(12, ws.max_column + 1)):
+        text = _normalize_label(_cell_str(ws.cell(header_row, col).value))
+        if any(text.startswith(_normalize_label(p)) for p in _SUPPLIER_HEADER_PREFIXES):
+            return col
+    return 6
 
 
 def _find_buyer_header_row(ws: Worksheet, start_row: int) -> Optional[int]:
     for row in range(start_row, ws.max_row + 1):
-        for col in range(1, 8):
-            text = _cell_str(ws.cell(row, col).value).replace(" ", "")
-            if any(text.startswith(p) for p in _BUYER_HEADER_PREFIXES):
+        for col in range(1, min(10, ws.max_column + 1)):
+            text = _normalize_label(_cell_str(ws.cell(row, col).value))
+            if any(text.startswith(_normalize_label(p)) for p in _BUYER_HEADER_PREFIXES):
                 return row
     return None
 
 
-def _writable_cell(ws: Worksheet, row: int, col: int):
-    """若目标格在合并区域内，返回可写入的左上角单元格"""
-    for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_row <= row <= merged.max_row
-            and merged.min_col <= col <= merged.max_col
-        ):
-            return ws.cell(merged.min_row, merged.min_col)
-    return ws.cell(row, col)
+def _detect_buyer_label_col(ws: Worksheet, start_row: int, supplier_col: int) -> int:
+    """在需方区块内识别标签列（含「单位名称」等字段的行）"""
+    for row in range(start_row, min(start_row + 12, ws.max_row + 1)):
+        for col in range(1, supplier_col):
+            text = _normalize_label(_cell_str(ws.cell(row, col).value))
+            for _key, patterns in BUYER_LABEL_KEYS:
+                if any(text.startswith(_normalize_label(p)) for p in patterns):
+                    return col
+    return 3
 
 
 def _resolve_value_column(ws: Worksheet, row: int, col: int) -> int:
-    """解析实际应写入的列（合并单元格取左上角列）"""
     for merged in ws.merged_cells.ranges:
         if (
             merged.min_row <= row <= merged.max_row
@@ -194,53 +230,84 @@ def _resolve_value_column(ws: Worksheet, row: int, col: int) -> int:
     return col
 
 
-def _is_in_label_merge(ws: Worksheet, row: int, col: int) -> bool:
-    """判断单元格是否属于从C列（标签列）起始的合并区域"""
+def _is_in_label_merge(ws: Worksheet, row: int, col: int, label_col: int) -> bool:
+    """判断单元格是否属于从标签列起始的合并区域"""
     for merged in ws.merged_cells.ranges:
         if (
             merged.min_row <= row <= merged.max_row
-            and merged.min_col == 3  # 从C列开始
+            and merged.min_col == label_col
             and merged.min_col <= col <= merged.max_col
         ):
             return True
     return False
 
 
-def _find_buyer_fields(ws: Worksheet, start_row: int) -> Tuple[Dict[str, int], int]:
+def _label_matches(label: str, patterns: Tuple[str, ...]) -> bool:
+    norm = _normalize_label(label)
+    return any(norm.startswith(_normalize_label(p)) for p in patterns)
+
+
+def _find_buyer_fields(
+    ws: Worksheet,
+    start_row: int,
+    label_col: int,
+    supplier_col: int,
+) -> Tuple[Dict[str, int], int]:
     """扫描需方字段行，返回 {语义键: 行号} 及值写入列"""
     fields: Dict[str, int] = {}
-    value_col = 5
+    value_col = label_col + 2
 
     for row in range(start_row, ws.max_row + 1):
-        label = _cell_str(ws.cell(row, 3).value)
+        label = _cell_str(ws.cell(row, label_col).value)
         if not label:
             continue
-        # 遇到供方/卖方/乙方区块即停止扫描
-        label_nospace = label.replace(" ", "")
-        if any(label_nospace.startswith(p) for p in ("供方", "卖方", "乙方", "供货方")):
+        label_norm = _normalize_label(label)
+        if any(label_norm.startswith(_normalize_label(p)) for p in _SUPPLIER_HEADER_PREFIXES):
             break
+        hit_supplier = False
+        for col in range(supplier_col, min(supplier_col + 2, ws.max_column + 1)):
+            side_text = _normalize_label(_cell_str(ws.cell(row, col).value))
+            if any(side_text.startswith(_normalize_label(p)) for p in _SUPPLIER_HEADER_PREFIXES):
+                hit_supplier = True
+                break
+        if hit_supplier:
+            break
+
         for key, patterns in BUYER_LABEL_KEYS:
             if key in fields:
                 continue
-            if any(label.startswith(p) for p in patterns):
+            if _label_matches(label, patterns):
                 fields[key] = row
-                # 优先查找公式单元格（=E2或VLOOKUP等），再查非空且非标签合并的单元格
                 formula_col = None
                 fallback_col = None
-                for col in range(4, 8):
+                for col in range(label_col + 1, supplier_col):
                     cell = ws.cell(row, col)
                     if isinstance(cell.value, str) and cell.value.startswith("="):
                         if formula_col is None:
                             formula_col = _resolve_value_column(ws, row, col)
                     elif cell.value and not _cell_str(cell.value).startswith("="):
-                        if fallback_col is None and not _is_in_label_merge(ws, row, col):
+                        if fallback_col is None and not _is_in_label_merge(ws, row, col, label_col):
                             fallback_col = _resolve_value_column(ws, row, col)
                 if formula_col is not None:
                     value_col = formula_col
                 elif fallback_col is not None:
                     value_col = fallback_col
                 break
+
     return fields, value_col
+
+
+def _find_terms_last_row(ws: Worksheet, grand_row: int, buyer_header: Optional[int]) -> int:
+    """识别条款区最后一行（含内容的行）"""
+    end_row = grand_row
+    scan_until = buyer_header if buyer_header else ws.max_row
+    for row in range(grand_row + 1, scan_until):
+        for col in range(1, min(8, ws.max_column + 1)):
+            text = _cell_str(ws.cell(row, col).value)
+            if text:
+                end_row = row
+                break
+    return end_row
 
 
 def _find_empty_rows_before_buyer(ws: Worksheet, from_row: int, buyer_header_row: int) -> List[int]:
@@ -254,7 +321,7 @@ def _find_empty_rows_before_buyer(ws: Worksheet, from_row: int, buyer_header_row
 def analyze_template_layout(template_path: str, sheet_name: Optional[str] = None) -> TemplateLayout:
     """
     分析上传的销售订单合同模板，自动识别产品区、合计区、需方区位置。
-    用户更换新模板时，只要结构类似（产品公式区 + 合计 + 需方信息表），即可自动适配。
+    不同模板只要结构类似（产品公式区 + 合计 + 总合计大写 + 需方信息表），即可自动适配。
     """
     wb = openpyxl.load_workbook(template_path, data_only=False)
     try:
@@ -280,28 +347,28 @@ def analyze_template_layout(template_path: str, sheet_name: Optional[str] = None
 
         party_cell = _find_party_cell(ws)
         grand_total_row = _find_grand_total_row(ws, total_row)
-
-        terms_end = grand_total_row
-        for row in range(grand_total_row + 1, ws.max_row + 1):
-            text = _cell_str(ws.cell(row, 3).value)
-            if text.startswith("需方") or text.startswith("10、"):
-                if text.startswith("10、"):
-                    terms_end = row
-                break
-            if text:
-                terms_end = row
+        grand_formula_col, grand_merge_min, grand_merge_max = _find_grand_formula_info(
+            ws, grand_total_row
+        )
+        product_row_merges = _detect_product_row_merges(ws, first_row)
 
         buyer_header = _find_buyer_header_row(ws, grand_total_row + 1)
+        supplier_col = _find_supplier_start_col(ws, buyer_header) if buyer_header else 6
+        terms_last = _find_terms_last_row(ws, grand_total_row, buyer_header)
+
         empty_before_buyer: List[int] = []
         buyer_fields: Dict[str, int] = {}
+        buyer_label_col = 3
         buyer_value_col = 5
 
         if buyer_header:
-            empty_before_buyer = _find_empty_rows_before_buyer(ws, terms_end + 1, buyer_header)
-            scan_start = buyer_header
-            buyer_fields, buyer_value_col = _find_buyer_fields(ws, scan_start)
+            buyer_label_col = _detect_buyer_label_col(ws, buyer_header + 1, supplier_col)
+            empty_before_buyer = _find_empty_rows_before_buyer(ws, terms_last + 1, buyer_header)
+            buyer_fields, buyer_value_col = _find_buyer_fields(
+                ws, buyer_header + 1, buyer_label_col, supplier_col
+            )
         else:
-            buyer_fields, buyer_value_col = _find_buyer_fields(ws, grand_total_row + 1)
+            buyer_fields, buyer_value_col = _find_buyer_fields(ws, grand_total_row + 1, 3, 6)
 
         if not buyer_fields:
             raise ValueError("未找到需方信息区（单位名称/地址等标签）")
@@ -318,6 +385,14 @@ def analyze_template_layout(template_path: str, sheet_name: Optional[str] = None
             buyer_value_col=buyer_value_col,
             buyer_fields=buyer_fields,
             empty_rows_before_buyer=empty_before_buyer,
+            grand_formula_col=grand_formula_col,
+            grand_formula_merge_min_col=grand_merge_min,
+            grand_formula_merge_max_col=grand_merge_max,
+            product_row_merges=product_row_merges,
+            buyer_label_col=buyer_label_col,
+            buyer_header_row=buyer_header or 0,
+            supplier_start_col=supplier_col,
+            terms_last_row=terms_last,
         )
     finally:
         wb.close()

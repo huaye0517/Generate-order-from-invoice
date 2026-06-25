@@ -58,7 +58,6 @@ def generate_contracts(
                 dest = output_path / f"{stem}_{n}{suffix}"
                 n += 1
 
-        product_lines = count_product_lines(order_rows, group.customers)
         invoice_record = lookup_invoice_record(group.e2_value, group.customers, invoice_records)
         buyer_info = buyer_info_from_record(invoice_record, group.e2_value)
         actual_e2 = buyer_info.get("party", group.e2_value)
@@ -76,6 +75,10 @@ def generate_contracts(
 
         # 修正后重新评估formula_warning（基于最终actual_e2）
         formula_warning = not c_values or actual_e2 not in c_values
+
+        # 基于最终E2键计算有效产品行数：只统计匹配E2且有实际数据的行
+        # 确保裁剪行数与公式实际显示行数一致，消除末尾空白行
+        product_lines = count_product_lines(order_rows, [actual_e2])
 
         prepare_template_output(
             template_path,

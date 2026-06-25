@@ -7,14 +7,15 @@ from .order_cache import RowTuple
 TOLERANCE = 0.01
 
 
-def count_product_lines(order_rows: List[RowTuple], customer_names: List[str]) -> int:
-    """统计该公司关联客户的订单明细行数（即产品行数）"""
-    name_set = {str(n).strip() for n in customer_names}
-    count = 0
-    for c_str, k_str, _qty, _amt in order_rows:
-        if k_str in name_set or c_str in name_set:
-            count += 1
-    return count
+def count_product_lines(order_rows: List[RowTuple], party_keys: List[str]) -> int:
+    """
+    统计与模板 E2/COUNTIF 一致的产品行数。
+    订单表 B 列公式为 COUNTIF(订单!C:C, 模板!E2)，故只按 C 列精确匹配计数。
+    """
+    keys = {str(k).strip() for k in party_keys if k}
+    if not keys:
+        return 0
+    return sum(1 for c_str, _k_str, _qty, _amt in order_rows if c_str in keys)
 
 
 def sum_order_for_customers(order_rows: List[RowTuple], customer_names: List[str]) -> Tuple[float, float, Set[str]]:
