@@ -4,12 +4,12 @@ import re
 from pathlib import Path
 from typing import Callable, List, Optional
 from .catalog import group_by_company
-from .invoice_map import buyer_cells_from_record, load_invoice_records, lookup_invoice_record
+from .invoice_map import buyer_info_from_record, load_invoice_records, lookup_invoice_record
 from .models import CompanyGroup, GenerationResult
 from .order_cache import load_order_rows
-from .template_layout import empty_product_row_range
+from .template_analyzer import analyze_template_layout
+from .template_finalize import prepare_template_output
 from .validator import count_product_lines, validate_company_group
-from .xlsx_patch import copy_and_set_e2
 
 INVALID_CHARS = re.compile(r'[\\/:*?"<>|]')
 
@@ -38,6 +38,7 @@ def generate_contracts(
     groups: List[CompanyGroup] = group_by_company(catalog_path, template_path)
     order_rows = load_order_rows(template_path)
     invoice_records = load_invoice_records(template_path)
+    template_layout = analyze_template_layout(template_path)
     results: List[GenerationResult] = []
     total = len(groups)
 
@@ -58,11 +59,17 @@ def generate_contracts(
                 n += 1
 
         product_lines = count_product_lines(order_rows, group.customers)
-        hide_rows = empty_product_row_range(product_lines)
         invoice_record = lookup_invoice_record(group.e2_value, group.customers, invoice_records)
-        cell_values = buyer_cells_from_record(invoice_record, group.e2_value)
-        actual_e2 = cell_values["E2"]
-        copy_and_set_e2(template_path, str(dest), cell_values, hide_rows=hide_rows)
+        buyer_info = buyer_info_from_record(invoice_record, group.e2_value)
+        actual_e2 = buyer_info.get("party", group.e2_value)
+
+        prepare_template_output(
+            template_path,
+            str(dest),
+            buyer_info,
+            product_lines,
+            layout=template_layout,
+        )
 
         status = "一致" if consistent else "数据不一致"
         message = ""

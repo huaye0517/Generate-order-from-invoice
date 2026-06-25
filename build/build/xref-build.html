@@ -5887,8 +5887,11 @@ imported by:
  &#8226;   <a href="#core.invoice_map">core.invoice_map</a>
  &#8226;   <a href="#core.models">core.models</a>
  &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
  &#8226;   <a href="#core.validator">core.validator</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
 
   </div>
 
@@ -5921,10 +5924,12 @@ imported by:
 imports:
     <a href="#core">core</a>
  &#8226;   <a href="#core.catalog">core.catalog</a>
+ &#8226;   <a href="#core.invoice_map">core.invoice_map</a>
  &#8226;   <a href="#core.models">core.models</a>
  &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
  &#8226;   <a href="#core.validator">core.validator</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#typing">typing</a>
@@ -5944,6 +5949,7 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#core">core</a>
+ &#8226;   <a href="#dataclasses">dataclasses</a>
  &#8226;   <a href="#openpyxl">openpyxl</a>
  &#8226;   <a href="#typing">typing</a>
 
@@ -5951,6 +5957,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#core.catalog">core.catalog</a>
+ &#8226;   <a href="#core.generator">core.generator</a>
 
   </div>
 
@@ -5997,13 +6004,37 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="core.validator"></a>
-  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/validator.py" type="text/plain"><tt>core.validator</tt></a>
+  <a name="core.template_analyzer"></a>
+  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/template_analyzer.py" type="text/plain"><tt>core.template_analyzer</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#core">core</a>
- &#8226;   <a href="#core.models">core.models</a>
- &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
+ &#8226;   <a href="#openpyxl">openpyxl</a>
+ &#8226;   <a href="#openpyxl.worksheet.worksheet">openpyxl.worksheet.worksheet</a>
+ &#8226;   <a href="#re">re</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.generator">core.generator</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.template_finalize"></a>
+  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/template_finalize.py" type="text/plain"><tt>core.template_finalize</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#core">core</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
+ &#8226;   <a href="#shutil">shutil</a>
  &#8226;   <a href="#typing">typing</a>
 
   </div>
@@ -6016,18 +6047,55 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="core.xlsx_patch"></a>
-  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/xlsx_patch.py" type="text/plain"><tt>core.xlsx_patch</tt></a>
+  <a name="core.template_layout"></a>
+  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/template_layout.py" type="text/plain"><tt>core.template_layout</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#core">core</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#re">re</a>
- &#8226;   <a href="#shutil">shutil</a>
+ &#8226;   <a href="#dataclasses">dataclasses</a>
  &#8226;   <a href="#typing">typing</a>
- &#8226;   <a href="#xml.etree">xml.etree</a>
- &#8226;   <a href="#xml.etree.ElementTree">xml.etree.ElementTree</a>
- &#8226;   <a href="#zipfile">zipfile</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.template_trim"></a>
+  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/template_trim.py" type="text/plain"><tt>core.template_trim</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#core">core</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
+ &#8226;   <a href="#openpyxl">openpyxl</a>
+ &#8226;   <a href="#openpyxl.utils">openpyxl.utils</a>
+ &#8226;   <a href="#openpyxl.worksheet.worksheet">openpyxl.worksheet.worksheet</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.template_finalize">core.template_finalize</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.validator"></a>
+  <a target="code" href="///D:/%E9%A1%B9%E7%9B%AE/Generate-order-from-invoice/core/validator.py" type="text/plain"><tt>core.validator</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#core">core</a>
+ &#8226;   <a href="#core.models">core.models</a>
+ &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#typing">typing</a>
 
   </div>
   <div class="import">
@@ -7493,7 +7561,9 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#core.models">core.models</a>
+    <a href="#core.invoice_map">core.invoice_map</a>
+ &#8226;   <a href="#core.models">core.models</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
  &#8226;   <a href="#pprint">pprint</a>
 
   </div>
@@ -20665,6 +20735,8 @@ imported by:
     <a href="#core.catalog">core.catalog</a>
  &#8226;   <a href="#core.invoice_map">core.invoice_map</a>
  &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
  &#8226;   <a href="#main.py">main.py</a>
  &#8226;   <a href="#openpyxl._constants">openpyxl._constants</a>
  &#8226;   <a href="#openpyxl.cell">openpyxl.cell</a>
@@ -24020,7 +24092,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#openpyxl.cell.cell">openpyxl.cell.cell</a>
+    <a href="#core.template_trim">core.template_trim</a>
+ &#8226;   <a href="#openpyxl.cell.cell">openpyxl.cell.cell</a>
  &#8226;   <a href="#openpyxl.cell.read_only">openpyxl.cell.read_only</a>
  &#8226;   <a href="#openpyxl.chart.reference">openpyxl.chart.reference</a>
  &#8226;   <a href="#openpyxl.chart.series_factory">openpyxl.chart.series_factory</a>
@@ -25186,7 +25259,9 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#openpyxl.chart.reference">openpyxl.chart.reference</a>
+    <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
+ &#8226;   <a href="#openpyxl.chart.reference">openpyxl.chart.reference</a>
  &#8226;   <a href="#openpyxl.workbook.workbook">openpyxl.workbook.workbook</a>
  &#8226;   <a href="#openpyxl.worksheet._read_only">openpyxl.worksheet._read_only</a>
  &#8226;   <a href="#openpyxl.worksheet._write_only">openpyxl.worksheet._write_only</a>
@@ -25760,7 +25835,6 @@ imports:
   <div class="import">
 imported by:
     <a href="#core.generator">core.generator</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
  &#8226;   <a href="#customtkinter.windows.widgets.theme.theme_manager">customtkinter.windows.widgets.theme.theme_manager</a>
  &#8226;   <a href="#darkdetect._mac_detect">darkdetect._mac_detect</a>
  &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
@@ -27189,7 +27263,7 @@ imported by:
  &#8226;   <a href="#charset_normalizer.models">charset_normalizer.models</a>
  &#8226;   <a href="#charset_normalizer.utils">charset_normalizer.utils</a>
  &#8226;   <a href="#core.generator">core.generator</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
  &#8226;   <a href="#csv">csv</a>
  &#8226;   <a href="#ctypes._aix">ctypes._aix</a>
  &#8226;   <a href="#ctypes.macholib.dylib">ctypes.macholib.dylib</a>
@@ -27494,7 +27568,7 @@ imported by:
     <a href="#PIL.EpsImagePlugin">PIL.EpsImagePlugin</a>
  &#8226;   <a href="#PIL.ImageShow">PIL.ImageShow</a>
  &#8226;   <a href="#argparse">argparse</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
  &#8226;   <a href="#ctypes.util">ctypes.util</a>
  &#8226;   <a href="#customtkinter.windows.widgets.font.font_manager">customtkinter.windows.widgets.font.font_manager</a>
  &#8226;   <a href="#http.server">http.server</a>
@@ -28922,8 +28996,11 @@ imported by:
  &#8226;   <a href="#core.invoice_map">core.invoice_map</a>
  &#8226;   <a href="#core.models">core.models</a>
  &#8226;   <a href="#core.order_cache">core.order_cache</a>
+ &#8226;   <a href="#core.template_analyzer">core.template_analyzer</a>
+ &#8226;   <a href="#core.template_finalize">core.template_finalize</a>
+ &#8226;   <a href="#core.template_layout">core.template_layout</a>
+ &#8226;   <a href="#core.template_trim">core.template_trim</a>
  &#8226;   <a href="#core.validator">core.validator</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
  &#8226;   <a href="#customtkinter.windows.ctk_input_dialog">customtkinter.windows.ctk_input_dialog</a>
  &#8226;   <a href="#customtkinter.windows.ctk_tk">customtkinter.windows.ctk_tk</a>
  &#8226;   <a href="#customtkinter.windows.ctk_toplevel">customtkinter.windows.ctk_toplevel</a>
@@ -29876,8 +29953,7 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#core.xlsx_patch">core.xlsx_patch</a>
- &#8226;   <a href="#xml.etree">xml.etree</a>
+    <a href="#xml.etree">xml.etree</a>
  &#8226;   <a href="#xml.etree.ElementInclude">xml.etree.ElementInclude</a>
  &#8226;   <a href="#xml.etree.ElementPath">xml.etree.ElementPath</a>
  &#8226;   <a href="#xml.etree.ElementTree">xml.etree.ElementTree</a>
@@ -29949,7 +30025,6 @@ imports:
 imported by:
     <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#_elementtree">_elementtree</a>
- &#8226;   <a href="#core.xlsx_patch">core.xlsx_patch</a>
  &#8226;   <a href="#et_xmlfile.incremental_tree">et_xmlfile.incremental_tree</a>
  &#8226;   <a href="#et_xmlfile.xmlfile">et_xmlfile.xmlfile</a>
  &#8226;   <a href="#openpyxl.xml.functions">openpyxl.xml.functions</a>
@@ -30621,8 +30696,7 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#core.xlsx_patch">core.xlsx_patch</a>
- &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
+    <a href="#importlib.metadata">importlib.metadata</a>
  &#8226;   <a href="#importlib.readers">importlib.readers</a>
  &#8226;   <a href="#numpy.lib._npyio_impl">numpy.lib._npyio_impl</a>
  &#8226;   <a href="#openpyxl.reader.excel">openpyxl.reader.excel</a>

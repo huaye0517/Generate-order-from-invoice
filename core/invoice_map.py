@@ -133,29 +133,35 @@ def lookup_invoice_record(
     return best
 
 
-def buyer_cells_from_record(record: Optional[InvoiceRecord], e2_value: str) -> Dict[str, str]:
-    """生成需方区各单元格应写入的值（与模板 VLOOKUP 列对应）"""
+def buyer_info_from_record(record: Optional[InvoiceRecord], e2_value: str) -> Dict[str, str]:
+    """生成需方信息（语义键，由 template_trim 按 layout 写入对应单元格）"""
     company = e2_value
+    if record and record.company_name:
+        company = record.company_name
+
     if record:
-        if record.company_name:
-            company = record.company_name
         return {
-            "E2": company,
-            "E221": company,
-            "E222": record.address,
-            "E223": record.signatory,
-            "E224": record.phone,
-            "E225": record.bank,
-            "E226": record.account,
-            "E227": record.credit_code,
+            "party": company,
+            "company": company,
+            "address": record.address,
+            "signatory": record.signatory,
+            "phone": record.phone,
+            "bank": record.bank,
+            "account": record.account,
+            "credit_code": record.credit_code,
         }
     return {
-        "E2": company,
-        "E221": company,
-        "E222": "",
-        "E223": "",
-        "E224": "",
-        "E225": "",
-        "E226": "",
-        "E227": "",
+        "party": company,
+        "company": company,
+        "address": "",
+        "signatory": "",
+        "phone": "",
+        "bank": "",
+        "account": "",
+        "credit_code": "",
     }
+
+
+def buyer_cells_from_record(record: Optional[InvoiceRecord], e2_value: str) -> Dict[str, str]:
+    """兼容旧接口，返回 buyer_info_from_record 结果"""
+    return buyer_info_from_record(record, e2_value)
