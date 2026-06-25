@@ -46,7 +46,7 @@ def generate_contracts(
         if progress_callback:
             progress_callback(idx, total, group.company_name)
 
-        order_qty, order_amt, consistent, formula_warning = validate_company_group(order_rows, group)
+        order_qty, order_amt, consistent, formula_warning, c_values = validate_company_group(order_rows, group)
         filename = build_output_filename(group.company_name, consistent)
         dest = output_path / filename
 
@@ -62,6 +62,20 @@ def generate_contracts(
         invoice_record = lookup_invoice_record(group.e2_value, group.customers, invoice_records)
         buyer_info = buyer_info_from_record(invoice_record, group.e2_value)
         actual_e2 = buyer_info.get("party", group.e2_value)
+
+        # 修正E2（party）：确保其与订单C列值精确匹配，使COUNTIF公式能正常过滤产品行
+        if c_values and actual_e2 not in c_values:
+            # 优先选包含当前e2值的订单C列项，否则按字母序取第一个
+            best_key = next(
+                (v for v in sorted(c_values) if group.e2_value.lower() in v.lower()),
+                sorted(c_values)[0],
+            )
+            buyer_info = dict(buyer_info)
+            buyer_info["party"] = best_key
+            actual_e2 = best_key
+
+        # 修正后重新评估formula_warning（基于最终actual_e2）
+        formula_warning = not c_values or actual_e2 not in c_values
 
         prepare_template_output(
             template_path,

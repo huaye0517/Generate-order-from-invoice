@@ -170,6 +170,18 @@ def _resolve_value_column(ws: Worksheet, row: int, col: int) -> int:
     return col
 
 
+def _is_in_label_merge(ws: Worksheet, row: int, col: int) -> bool:
+    """判断单元格是否属于从C列（标签列）起始的合并区域"""
+    for merged in ws.merged_cells.ranges:
+        if (
+            merged.min_row <= row <= merged.max_row
+            and merged.min_col == 3  # 从C列开始
+            and merged.min_col <= col <= merged.max_col
+        ):
+            return True
+    return False
+
+
 def _find_buyer_fields(ws: Worksheet, start_row: int) -> Tuple[Dict[str, int], int]:
     """扫描需方字段行，返回 {语义键: 行号} 及值写入列"""
     fields: Dict[str, int] = {}
@@ -186,14 +198,21 @@ def _find_buyer_fields(ws: Worksheet, start_row: int) -> Tuple[Dict[str, int], i
                 continue
             if any(label.startswith(p) for p in patterns):
                 fields[key] = row
+                # 优先查找公式单元格（=E2或VLOOKUP等），再查非空且非标签合并的单元格
+                formula_col = None
+                fallback_col = None
                 for col in range(4, 8):
                     cell = ws.cell(row, col)
                     if isinstance(cell.value, str) and cell.value.startswith("="):
-                        value_col = _resolve_value_column(ws, row, col)
-                        break
-                    if cell.value and not _cell_str(cell.value).startswith("="):
-                        value_col = _resolve_value_column(ws, row, col)
-                        break
+                        if formula_col is None:
+                            formula_col = _resolve_value_column(ws, row, col)
+                    elif cell.value and not _cell_str(cell.value).startswith("="):
+                        if fallback_col is None and not _is_in_label_merge(ws, row, col):
+                            fallback_col = _resolve_value_column(ws, row, col)
+                if formula_col is not None:
+                    value_col = formula_col
+                elif fallback_col is not None:
+                    value_col = fallback_col
                 break
     return fields, value_col
 

@@ -124,5 +124,11 @@ def trim_template_sheet(
         if row and row <= ws.max_row:
             _write_buyer_value(ws, row, value_col, buyer_info.get(key, ""))
 
+    # 重置工作表视图，打开时从第1行开始显示
+    ws.sheet_view.topLeftCell = "A1"
+    if ws.sheet_view.selection:
+        ws.sheet_view.selection[0].activeCell = "A1"
+        ws.sheet_view.selection[0].sqref = "A1"
+
     wb.save(dest_path)
     wb.close()

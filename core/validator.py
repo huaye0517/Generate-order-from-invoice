@@ -43,8 +43,8 @@ def check_formula_warning(e2_value: str, order_c_values: Set[str]) -> bool:
     return str(e2_value).strip() not in order_c_values
 
 
-def validate_company_group(order_rows: List[RowTuple], group: CompanyGroup) -> Tuple[float, float, bool, bool]:
+def validate_company_group(order_rows: List[RowTuple], group: CompanyGroup) -> Tuple[float, float, bool, bool, Set[str]]:
     order_qty, order_amt, c_values = sum_order_for_customers(order_rows, group.customers)
     consistent = is_consistent(group.catalog_quantity, group.catalog_amount, order_qty, order_amt)
     formula_warning = check_formula_warning(group.e2_value, c_values)
-    return order_qty, order_amt, consistent, formula_warning
+    return order_qty, order_amt, consistent, formula_warning, c_values
