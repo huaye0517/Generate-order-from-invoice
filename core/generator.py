@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Callable, List, Optional
 from .catalog import group_by_company
+from .invoice_map import buyer_cells_from_record, load_invoice_records, lookup_invoice_record
 from .models import CompanyGroup, GenerationResult
 from .order_cache import load_order_rows
 from .template_layout import empty_product_row_range
@@ -36,6 +37,7 @@ def generate_contracts(
 
     groups: List[CompanyGroup] = group_by_company(catalog_path, template_path)
     order_rows = load_order_rows(template_path)
+    invoice_records = load_invoice_records(template_path)
     results: List[GenerationResult] = []
     total = len(groups)
 
@@ -57,7 +59,10 @@ def generate_contracts(
 
         product_lines = count_product_lines(order_rows, group.customers)
         hide_rows = empty_product_row_range(product_lines)
-        copy_and_set_e2(template_path, str(dest), group.e2_value, hide_rows=hide_rows)
+        invoice_record = lookup_invoice_record(group.e2_value, group.customers, invoice_records)
+        cell_values = buyer_cells_from_record(invoice_record, group.e2_value)
+        actual_e2 = cell_values["E2"]
+        copy_and_set_e2(template_path, str(dest), cell_values, hide_rows=hide_rows)
 
         status = "一致" if consistent else "数据不一致"
         message = ""
@@ -74,7 +79,7 @@ def generate_contracts(
         results.append(
             GenerationResult(
                 company_name=group.company_name,
-                e2_value=group.e2_value,
+                e2_value=actual_e2,
                 customers=group.customers,
                 catalog_quantity=group.catalog_quantity,
                 catalog_amount=group.catalog_amount,
