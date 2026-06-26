@@ -72,6 +72,71 @@ def _write_buyer_value(ws: Worksheet, row: int, col: int, value: str) -> None:
     ws.cell(row, col).value = value
 
 
+def _save_merges_from_row(ws: Worksheet, from_row: int) -> List[Tuple[int, int, int, int]]:
+    """删行前保存 from_row 及以下所有合并区域定义"""
+    saved: List[Tuple[int, int, int, int]] = []
+    for m in ws.merged_cells.ranges:
+        if m.min_row >= from_row:
+            saved.append((m.min_row, m.max_row, m.min_col, m.max_col))
+    return saved
+
+
+def _remove_merges_from_row(ws: Worksheet, from_row: int) -> None:
+    """移除 from_row 及以下全部合并（含 openpyxl 删行遗留的幽灵合并）"""
+    to_remove = [m for m in list(ws.merged_cells.ranges) if m.min_row >= from_row]
+    for m in to_remove:
+        _safe_remove_merge(ws, m)
+
+
+def _restore_merges(
+    ws: Worksheet,
+    saved: List[Tuple[int, int, int, int]],
+    delete_count: int,
+    gap_deleted: int,
+    buyer_header_row: int,
+) -> None:
+    """
+    按删行偏移量恢复页脚合并。
+    条款区（需方标题行以上）只偏移 delete_count；
+    需方区块（含标题行）额外偏移 gap_deleted（需方前空白行删除）。
+    """
+    for min_r, max_r, min_c, max_c in saved:
+        if buyer_header_row and min_r >= buyer_header_row:
+            shift = delete_count + gap_deleted
+        else:
+            shift = delete_count
+        new_min_r = min_r - shift
+        new_max_r = max_r - shift
+        if new_min_r < 1 or new_max_r > ws.max_row:
+            continue
+        start_col = get_column_letter(min_c)
+        end_col = get_column_letter(max_c)
+        try:
+            ws.merge_cells(f"{start_col}{new_min_r}:{end_col}{new_max_r}")
+        except ValueError:
+            pass
+
+
+def _purge_all_ghost_merges(
+    ws: Worksheet,
+    from_row: int,
+    merge_patterns: List[Tuple[int, int]],
+) -> None:
+    """清除 from_row 以下所有匹配产品行模式的幽灵单行合并"""
+    if not merge_patterns:
+        return
+    to_remove = []
+    for m in list(ws.merged_cells.ranges):
+        if m.min_row < from_row or m.min_row != m.max_row:
+            continue
+        for min_col, max_col in merge_patterns:
+            if m.min_col == min_col and m.max_col == max_col:
+                to_remove.append(m)
+                break
+    for m in to_remove:
+        _safe_remove_merge(ws, m)
+
+
 def _save_grand_formula_info(
     ws: Worksheet,
     grand_total_row: int,
@@ -130,20 +195,20 @@ def _restore_grand_formula(
     merge_max_col: int,
     formula_col: int,
 ) -> None:
-    """恢复总合计大写公式：清除幽灵合并、修正行引用、重建合并"""
-    to_remove = [
-        m for m in list(ws.merged_cells.ranges)
+    """恢复总合计大写公式：先解除合并再写入，最后重建合并"""
+    write_col = merge_min_col
+    for m in list(ws.merged_cells.ranges):
         if (
-            m.min_row == grand_row
-            and m.min_col >= merge_min_col
-            and m.max_col <= merge_max_col
-        )
-    ]
-    for m in to_remove:
-        _safe_remove_merge(ws, m)
+            m.min_row <= grand_row <= m.max_row
+            and m.min_col <= write_col <= m.max_col
+        ):
+            try:
+                ws.unmerge_cells(str(m))
+            except (KeyError, TypeError, ValueError):
+                _safe_remove_merge(ws, m)
 
     corrected = _replace_row_in_formula(formula, old_total_row, new_total_row)
-    ws.cell(grand_row, formula_col).value = corrected
+    ws.cell(grand_row, write_col).value = corrected
 
     if merge_max_col > merge_min_col:
         start_col = get_column_letter(merge_min_col)
@@ -170,6 +235,9 @@ def trim_template_sheet(
     last_data_row = layout.last_product_row(product_line_count)
     delete_count = layout.rows_to_delete_count(product_line_count)
 
+    # 删行前保存页脚（合计行以下）全部合并定义，删行后 openpyxl 会破坏条款/需方区格式
+    footer_merges = _save_merges_from_row(ws, layout.total_row)
+
     e_grand_formula, e_merge_min, e_merge_max = _save_grand_formula_info(
         ws, layout.grand_total_row, layout
     )
@@ -193,10 +261,25 @@ def trim_template_sheet(
     grand_row = layout.grand_total_row - delete_count
     ws.cell(grand_row, amt_col).value = f"={amt_letter}{total_row}"
 
-    if delete_count > 0:
-        _purge_ghost_row_merges(
-            ws, last_data_row + 1, grand_row, layout.product_row_merges
-        )
+    gap_deleted = 0
+    for gap_row in sorted(layout.empty_rows_before_buyer, reverse=True):
+        shifted = gap_row - delete_count
+        if shifted > 0 and shifted <= ws.max_row and _row_is_empty(ws, shifted):
+            ws.delete_rows(shifted, 1)
+            gap_deleted += 1
+
+    row_shift = delete_count + gap_deleted
+    footer_start = layout.total_row - delete_count
+
+    # 清除页脚全部错误合并，再按模板原始定义恢复（条款 C:I、需方 C:D / G:J 等）
+    _remove_merges_from_row(ws, footer_start)
+    _restore_merges(
+        ws,
+        footer_merges,
+        delete_count,
+        gap_deleted,
+        layout.buyer_header_row,
+    )
 
     if e_grand_formula:
         _restore_grand_formula(
@@ -210,28 +293,13 @@ def trim_template_sheet(
             layout.grand_formula_col,
         )
 
-    gap_deleted = 0
-    for gap_row in sorted(layout.empty_rows_before_buyer, reverse=True):
-        shifted = gap_row - delete_count
-        if shifted > 0 and shifted <= ws.max_row and _row_is_empty(ws, shifted):
-            ws.delete_rows(shifted, 1)
-            gap_deleted += 1
-
-    row_shift = delete_count + gap_deleted
     buyer_rows = {
         key: row - row_shift
         for key, row in layout.buyer_fields.items()
     }
 
-    if buyer_rows and layout.product_row_merges:
-        valid_rows = [r for r in buyer_rows.values() if r > 0]
-        if valid_rows:
-            _purge_ghost_row_merges(
-                ws,
-                min(valid_rows) - 1,
-                max(valid_rows) + 1,
-                layout.product_row_merges,
-            )
+    # 清除产品区以下残留的幽灵 D:E 合并（openpyxl 删行元数据垃圾）
+    _purge_all_ghost_merges(ws, last_data_row + 1, layout.product_row_merges)
 
     party_cell = layout.party_cell
     party_row = ws[party_cell].row
