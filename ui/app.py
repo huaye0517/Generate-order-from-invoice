@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """销售订单合同生成工具 GUI"""
 import os
+import subprocess
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -16,6 +18,16 @@ COLOR_LIGHT = "#E8F0FE"
 COLOR_BG = "#F0F2F5"
 COLOR_CARD = "#FFFFFF"
 COLOR_TEXT_SUB = "#666666"
+
+
+def _open_directory(path: str) -> None:
+    """跨平台在系统文件管理器中打开目录"""
+    if sys.platform == "win32":
+        os.startfile(path)
+    elif sys.platform == "darwin":
+        subprocess.run(["open", path], check=False)
+    else:
+        subprocess.run(["xdg-open", path], check=False)
 
 
 class ContractGeneratorApp(ctk.CTk):
@@ -194,7 +206,7 @@ class ContractGeneratorApp(ctk.CTk):
         if not out or not os.path.isdir(out):
             messagebox.showwarning("提示", "请先选择有效的输出文件夹")
             return
-        os.startfile(out)
+        _open_directory(out)
 
     def _validate_inputs(self) -> bool:
         cat = self.catalog_path.get().strip()
